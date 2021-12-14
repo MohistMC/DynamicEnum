@@ -1,9 +1,17 @@
 plugins {
     id 'java'
+    id 'maven-publish'
 }
 
-group 'org.example'
-version '1.0-SNAPSHOT'
+group 'com.mohistmc.dynamicenumutil'
+version '0.1'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+[compileJava, compileTestJava, javadoc]*.options*.encoding = 'UTF-8'
 
 repositories {
     mavenCentral()
@@ -12,6 +20,22 @@ repositories {
 dependencies {
 }
 
-test {
-    useJUnitPlatform()
+publishing {
+    publications {
+        maven(MavenPublication) {
+            groupId project.group
+            artifactId project.name
+            version project.version
+            from components.java
+        }
+    }
+
+    repositories {
+        mavenLocal()
+
+        maven {
+            name = "Mohist-Maven"
+            setUrl("file:/Mohist-Maven/maven/")
+        }
+    }
 }

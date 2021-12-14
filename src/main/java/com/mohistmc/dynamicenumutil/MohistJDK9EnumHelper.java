@@ -1,6 +1,5 @@
 package com.mohistmc.dynamicenumutil;
 
-import java.lang.reflect.AccessibleObject;
 import sun.misc.Unsafe;
 
 import java.lang.invoke.MethodHandle;
