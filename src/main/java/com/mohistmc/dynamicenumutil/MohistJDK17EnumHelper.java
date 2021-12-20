@@ -12,7 +12,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-public class MohistJDK9EnumHelper {
+public class MohistJDK17EnumHelper {
     private static MethodHandles.Lookup implLookup = null;
     private static boolean isSetup = false;
 
@@ -35,7 +35,6 @@ public class MohistJDK9EnumHelper {
             Field implLookupField = MethodHandles.Lookup.class.getDeclaredField("IMPL_LOOKUP");
             implLookup = (MethodHandles.Lookup) unsafe.getObject(unsafe.staticFieldBase(implLookupField), unsafe.staticFieldOffset(implLookupField));
         } catch (Exception e) {
-            //FMLLog.log.error("Error setting up EnumHelper.", e);
         }
 
         isSetup = true;
