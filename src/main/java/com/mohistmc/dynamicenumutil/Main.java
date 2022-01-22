@@ -9,6 +9,7 @@ public class Main {
         MohistEnumHelper.addEnum0(Test.class, "d", new Class[0]);
         System.out.println(Arrays.toString(Test.values()));
         System.out.println(Arrays.toString(Test.values()));
+        MohistEnumHelper.addEnum0(Test.class, "aaa", new Class[0]);
         System.out.println(Arrays.toString(Test.values()));
     }
 }

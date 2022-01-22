@@ -15,6 +15,7 @@ import java.util.List;
 public class MohistJDK17EnumHelper {
     private static MethodHandles.Lookup implLookup = null;
     private static boolean isSetup = false;
+    private static sun.misc.Unsafe unsafe;
 
     private static void setup() {
         if (isSetup) {
@@ -157,6 +158,48 @@ public class MohistJDK17EnumHelper {
     static {
         if (!isSetup) {
             setup();
+        }
+    }
+
+    public static void setField(Object obj, Object value, Field field) throws ReflectiveOperationException {
+        if (obj == null) {
+            setStaticField(field, value);
+        } else {
+            try {
+                unsafe.putObject(obj, unsafe.objectFieldOffset(field), value);
+            } catch (Exception e) {
+                throw new ReflectiveOperationException(e);
+            }
+        }
+    }
+
+    public static void setStaticField(Field field, Object value) throws ReflectiveOperationException {
+        try {
+            implLookup.ensureInitialized(field.getDeclaringClass());
+            unsafe.putObject(unsafe.staticFieldBase(field), unsafe.staticFieldOffset(field), value);
+        } catch (Exception e) {
+            throw new ReflectiveOperationException(e);
+        }
+    }
+
+    public static <T> T getField(Object obj, Field field) throws ReflectiveOperationException {
+        if (obj == null) {
+            return getStaticField(field);
+        } else {
+            try {
+                return (T)unsafe.getObject(obj, unsafe.objectFieldOffset(field));
+            } catch (Exception e) {
+                throw new ReflectiveOperationException(e);
+            }
+        }
+    }
+
+    public static <T> T getStaticField(Field field) throws ReflectiveOperationException {
+        try {
+            implLookup.ensureInitialized(field.getDeclaringClass());
+            return (T)unsafe.getObject(unsafe.staticFieldBase(field), unsafe.staticFieldOffset(field));
+        } catch (Exception e) {
+            throw new ReflectiveOperationException(e);
         }
     }
 }
