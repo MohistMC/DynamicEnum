@@ -12,7 +12,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-public class MohistJDK17EnumHelper {
+public class MohistJDK11EnumHelper {
     private static MethodHandles.Lookup implLookup = null;
     private static boolean isSetup = false;
     private static sun.misc.Unsafe unsafe;
