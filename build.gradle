@@ -3,12 +3,12 @@ plugins {
     id 'maven-publish'
 }
 
-group 'com.mohistmc.dynamicenumutil'
-version '0.2'
+group 'com.mohistmc.enumhelper'
+version 'jdk17-0.1'
 
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(11)
+        languageVersion = JavaLanguageVersion.of(17)
     }
 }
 [compileJava, compileTestJava, javadoc]*.options*.encoding = 'UTF-8'
