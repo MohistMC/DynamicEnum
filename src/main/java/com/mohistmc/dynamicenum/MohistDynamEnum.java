@@ -112,7 +112,7 @@ public class MohistDynamEnum {
         blankField(enumClass, "enumVars");
     }
 
-    public static <T extends Enum<?>> void addEnum(final Class<T> enumType, String enumName, final Class<?>[] paramTypes, Object[] paramValues) {
+    public static <T extends Enum<?>> T addEnum(final Class<T> enumType, String enumName, final Class<?>[] paramTypes, Object[] paramValues) {
         if (!isSetup) {
             setup();
         }
@@ -144,7 +144,7 @@ public class MohistDynamEnum {
         }
 
         if (valuesField == null) {
-            return;
+            return null;
         }
 
         valuesField.setAccessible(true);
@@ -157,6 +157,7 @@ public class MohistDynamEnum {
             setFailsafeFieldValue(valuesField, null, values.toArray((T[]) Array.newInstance(enumType, 0)));
             cleanEnumCache(enumType);
 
+            return newValue;
         } catch (Throwable throwable) {
             throwable.printStackTrace();
             throw new RuntimeException(throwable.getMessage(), throwable);
@@ -205,7 +206,7 @@ public class MohistDynamEnum {
         }
     }
 
-    public static <T extends Enum<?>> void addEnum0(Class<T> enumType, String enumName, Class<?>[] paramTypes, Object... paramValues) {
-        addEnum(enumType, enumName, paramTypes, paramValues);
+    public static <T extends Enum<?>> T addEnum0(Class<T> enumType, String enumName, Class<?>[] paramTypes, Object... paramValues) {
+        return addEnum(enumType, enumName, paramTypes, paramValues);
     }
 }
