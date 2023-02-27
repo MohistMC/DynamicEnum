@@ -1,6 +1,6 @@
 /*
  * Mohist - MohistMC
- * Copyright (C) 2018-2022.
+ * Copyright (C) 2018-2023.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,7 +16,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-package com.mohistmc.enumhelper;
+package com.mohistmc.dynamicenum;
 
 import sun.misc.Unsafe;
 
@@ -30,10 +30,16 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-public class MohistJDK17EnumHelper {
+public class MohistDynamEnum {
     private static MethodHandles.Lookup implLookup = null;
     private static boolean isSetup = false;
     private static sun.misc.Unsafe unsafe;
+
+    static {
+        if (!isSetup) {
+            setup();
+        }
+    }
 
     private static void setup() {
         if (isSetup) {
@@ -53,7 +59,7 @@ public class MohistJDK17EnumHelper {
             unsafe = (Unsafe) unsafeField.get(null);
             Field implLookupField = MethodHandles.Lookup.class.getDeclaredField("IMPL_LOOKUP");
             implLookup = (MethodHandles.Lookup) unsafe.getObject(unsafe.staticFieldBase(implLookupField), unsafe.staticFieldOffset(implLookupField));
-        } catch (Exception e) {
+        } catch (Exception ignored) {
         }
 
         isSetup = true;
@@ -106,12 +112,7 @@ public class MohistJDK17EnumHelper {
         blankField(enumClass, "enumVars");
     }
 
-    public static <T extends Enum<?>> T addEnum0(Class<T> enumType, String enumName, Class<?>[] paramTypes, Object... paramValues) {
-        return addEnum(enumType, enumName, paramTypes, paramValues);
-    }
-
-    @SuppressWarnings({"unchecked", "serial"})
-    public static <T extends Enum<?>> T addEnum(final Class<T> enumType, String enumName, final Class<?>[] paramTypes, Object[] paramValues) {
+    public static <T extends Enum<?>> void addEnum(final Class<T> enumType, String enumName, final Class<?>[] paramTypes, Object[] paramValues) {
         if (!isSetup) {
             setup();
         }
@@ -134,7 +135,7 @@ public class MohistJDK17EnumHelper {
 
             for (Field field : fields) {
                 if ((field.getModifiers() & flags) == flags &&
-                        field.getType().getName().replace('.', '/').equals(valueType)) //Apparently some JVMs return .'s and some don't..
+                        field.getType().getName().replace('.', '/').equals(valueType)) //Apparently some JVMs return .'s and some don't.
                 {
                     valuesField = field;
                     break;
@@ -143,17 +144,7 @@ public class MohistJDK17EnumHelper {
         }
 
         if (valuesField == null) {
-            final List<String> lines = new ArrayList<>();
-            lines.add(String.format("Could not find $VALUES field for enum: %s", enumType.getName()));
-            //lines.add(String.format("Runtime Deobf: %s", FMLForgePlugin.RUNTIME_DEOBF));
-            lines.add(String.format("Flags: %s", String.format("%16s", Integer.toBinaryString(flags)).replace(' ', '0')));
-            lines.add("Fields:");
-            for (Field field : fields) {
-                String mods = String.format("%16s", Integer.toBinaryString(field.getModifiers())).replace(' ', '0');
-                lines.add(String.format("       %s %s: %s", mods, field.getName(), field.getType().getName()));
-            }
-
-            return null;
+            return;
         }
 
         valuesField.setAccessible(true);
@@ -161,21 +152,14 @@ public class MohistJDK17EnumHelper {
         try {
             T[] previousValues = (T[]) valuesField.get(enumType);
             List<T> values = new ArrayList<>(Arrays.asList(previousValues));
-            T newValue = (T) makeEnum(enumType, enumName, values.size(), paramTypes, paramValues);
+            T newValue = makeEnum(enumType, enumName, values.size(), paramTypes, paramValues);
             values.add(newValue);
             setFailsafeFieldValue(valuesField, null, values.toArray((T[]) Array.newInstance(enumType, 0)));
             cleanEnumCache(enumType);
 
-            return newValue;
         } catch (Throwable throwable) {
             throwable.printStackTrace();
             throw new RuntimeException(throwable.getMessage(), throwable);
-        }
-    }
-
-    static {
-        if (!isSetup) {
-            setup();
         }
     }
 
@@ -205,7 +189,7 @@ public class MohistJDK17EnumHelper {
             return getStaticField(field);
         } else {
             try {
-                return (T)unsafe.getObject(obj, unsafe.objectFieldOffset(field));
+                return (T) unsafe.getObject(obj, unsafe.objectFieldOffset(field));
             } catch (Exception e) {
                 throw new ReflectiveOperationException(e);
             }
@@ -215,9 +199,13 @@ public class MohistJDK17EnumHelper {
     public static <T> T getStaticField(Field field) throws ReflectiveOperationException {
         try {
             implLookup.ensureInitialized(field.getDeclaringClass());
-            return (T)unsafe.getObject(unsafe.staticFieldBase(field), unsafe.staticFieldOffset(field));
+            return (T) unsafe.getObject(unsafe.staticFieldBase(field), unsafe.staticFieldOffset(field));
         } catch (Exception e) {
             throw new ReflectiveOperationException(e);
         }
+    }
+
+    public static <T extends Enum<?>> void addEnum0(Class<T> enumType, String enumName, Class<?>[] paramTypes, Object... paramValues) {
+        addEnum(enumType, enumName, paramTypes, paramValues);
     }
 }

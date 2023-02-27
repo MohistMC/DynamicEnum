@@ -3,21 +3,23 @@ plugins {
     id 'maven-publish'
 }
 
-group 'com.mohistmc.enumhelper'
-version 'jdk17-0.1'
+group 'com.mohistmc'
+version '0.1'
 
-java {
-    toolchain {
-        languageVersion = JavaLanguageVersion.of(17)
-    }
-}
-[compileJava, compileTestJava, javadoc]*.options*.encoding = 'UTF-8'
+java.toolchain.languageVersion = JavaLanguageVersion.of(17)
 
 repositories {
     mavenCentral()
 }
 
 dependencies {
+    annotationProcessor 'org.projectlombok:lombok:1.18.24'
+    compileOnly 'org.projectlombok:lombok:1.18.24'
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.compilerArgs << '-Xlint:-removal'
 }
 
 publishing {
@@ -34,8 +36,7 @@ publishing {
         mavenLocal()
 
         maven {
-            name = "Mohist-Maven"
-            setUrl("file:/Mohist-Maven/maven/")
+            setUrl("file:/maven/")
         }
     }
 }
