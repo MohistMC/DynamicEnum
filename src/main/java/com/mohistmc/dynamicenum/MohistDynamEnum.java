@@ -1,6 +1,6 @@
 /*
  * Mohist - MohistMC
- * Copyright (C) 2018-2023.
+ * Copyright (C) 2019-2023.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -25,188 +25,89 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
-import java.lang.reflect.Modifier;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
 public class MohistDynamEnum {
-    private static MethodHandles.Lookup implLookup = null;
-    private static boolean isSetup = false;
-    private static sun.misc.Unsafe unsafe;
+    private static final MethodHandles.Lookup implLookup;
+    public static final sun.misc.Unsafe unsafe;
+
+    private static final List<String> ENUM_CACHE = List.of("enumConstantDirectory", "enumConstants", "enumVars");
 
     static {
-        if (!isSetup) {
-            setup();
-        }
-    }
-
-    private static void setup() {
-        if (isSetup) {
-            return;
-        }
-
         try {
-            /*
-             * After Java 9, sun.reflect package was moved to jdk.internal.reflect and it requires extra operations to access.
-             * After Java 12, all members in java.lang.reflect.Field class were added to jdk.internal.reflect.Reflection#fieldFilterMap so that it was unable to access by using reflection.
-             * So the most reasonable way is to use java.lang.invoke.MethodHandles$Lookup#IMPL_LOOKUP to access each member after Java 8.
-             * See: https://stackoverflow.com/questions/61141836/change-static-final-field-in-java-12
-             */
-            Class<?> unsafeClass = Class.forName("sun.misc.Unsafe");
-            Field unsafeField = unsafeClass.getDeclaredField("theUnsafe");
+            Field unsafeField = sun.misc.Unsafe.class.getDeclaredField("theUnsafe");
             unsafeField.setAccessible(true);
             unsafe = (Unsafe) unsafeField.get(null);
+            unsafe.ensureClassInitialized(MethodHandles.Lookup.class);
             Field implLookupField = MethodHandles.Lookup.class.getDeclaredField("IMPL_LOOKUP");
             implLookup = (MethodHandles.Lookup) unsafe.getObject(unsafe.staticFieldBase(implLookupField), unsafe.staticFieldOffset(implLookupField));
-        } catch (Exception ignored) {
-        }
-
-        isSetup = true;
-    }
-
-    /*
-     * Everything below this is found at the site below, and updated to be able to compile in Eclipse/Java 1.6+
-     * Also modified for use in decompiled code.
-     * Found at: http://niceideas.ch/roller2/badtrash/entry/java_create_enum_instances_dynamically
-     */
-    private static MethodHandle getConstructorAccessor(Class<?> enumClass, Class<?>[] additionalParameterTypes) throws Exception {
-        Class<?>[] parameterTypes = new Class[additionalParameterTypes.length + 2];
-        parameterTypes[0] = String.class;
-        parameterTypes[1] = int.class;
-        System.arraycopy(additionalParameterTypes, 0, parameterTypes, 2, additionalParameterTypes.length);
-        return implLookup.findConstructor(enumClass, MethodType.methodType(void.class, parameterTypes));
-    }
-
-    private static <T extends Enum<?>> T makeEnum(Class<T> enumClass, String value, int ordinal, Class<?>[] additionalTypes, Object[] additionalValues) throws Throwable {
-        int additionalParamsCount = additionalValues == null ? 0 : additionalValues.length;
-        Object[] params = new Object[additionalParamsCount + 2];
-        params[0] = value;
-        params[1] = ordinal;
-        if (additionalValues != null) {
-            System.arraycopy(additionalValues, 0, params, 2, additionalValues.length);
-        }
-        return enumClass.cast(getConstructorAccessor(enumClass, additionalTypes).invokeWithArguments(params));
-    }
-
-    public static void setFailsafeFieldValue(Field field, Object target, Object value) throws Throwable {
-        if (target != null) {
-            implLookup.findSetter(field.getDeclaringClass(), field.getName(), field.getType()).invoke(target, value);
-        } else {
-            implLookup.findStaticSetter(field.getDeclaringClass(), field.getName(), field.getType()).invoke(value);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
         }
     }
 
-    private static void blankField(Class<?> enumClass, String fieldName) throws Throwable {
-        for (Field field : Class.class.getDeclaredFields()) {
-            if (field.getName().contains(fieldName)) {
-                setFailsafeFieldValue(field, enumClass, null);
-                break;
-            }
+    private static <T> T makeEnum(Class<T> enumClass, String value, int ordinal, Class<?>[] additionalParameterTypes, Object[] additionalValues) {
+        try {
+            unsafe.ensureClassInitialized(enumClass);
+            Class<?>[] ptypes = new Class[additionalParameterTypes.length + 2];
+            ptypes[0] = String.class;
+            ptypes[1] = Integer.TYPE;
+            System.arraycopy(additionalParameterTypes, 0, ptypes, 2, additionalParameterTypes.length);
+            MethodHandle constructor = implLookup.findConstructor(enumClass, MethodType.methodType(Void.TYPE, ptypes));
+
+            Object[] arguments = new Object[additionalValues.length + 2];
+            arguments[0] = value;
+            arguments[1] = ordinal;
+            System.arraycopy(additionalValues, 0, arguments, 2, additionalValues.length);
+            return (T)constructor.invokeWithArguments(arguments);
+        }
+        catch (Throwable e) {
+            e.fillInStackTrace();
+            return null;
         }
     }
 
-    private static void cleanEnumCache(Class<?> enumClass) throws Throwable {
-        blankField(enumClass, "enumConstantDirectory");
-        blankField(enumClass, "enumConstants");
-        blankField(enumClass, "enumVars");
+    private static void cleanEnumCache(Class<?> enumClass) {
+        ENUM_CACHE.forEach(s -> Arrays.stream(Class.class.getDeclaredFields()).filter(field -> field.getName().equals(s)).forEachOrdered(field -> unsafe.putObjectVolatile(enumClass, unsafe.objectFieldOffset(field), null)));
     }
 
-    public static <T extends Enum<?>> T addEnum(final Class<T> enumType, String enumName, final Class<?>[] paramTypes, Object[] paramValues) {
-        if (!isSetup) {
-            setup();
-        }
-
-        Field valuesField = null;
-        Field[] fields = enumType.getDeclaredFields();
-
-        for (Field field : fields) {
-            String name = field.getName();
-            if (name.equals("$VALUES") || name.equals("ENUM$VALUES")) //Added 'ENUM$VALUES' because Eclipse's internal compiler doesn't follow standards
-            {
-                valuesField = field;
-                break;
-            }
-        }
-
-        int flags = (Modifier.PUBLIC) | Modifier.STATIC | Modifier.FINAL | 0x1000 /*SYNTHETIC*/;
-        if (valuesField == null) {
-            String valueType = String.format("[L%s;", enumType.getName().replace('.', '/'));
-
-            for (Field field : fields) {
-                if ((field.getModifiers() & flags) == flags &&
-                        field.getType().getName().replace('.', '/').equals(valueType)) //Apparently some JVMs return .'s and some don't.
-                {
-                    valuesField = field;
-                    break;
+    private static <T> T addEnum(Class<T> cl, String name, Class<?>[] additionalParameterTypes, Object[] additionalValues) {
+        try {
+            unsafe.ensureClassInitialized(cl);
+            for (Field field : cl.getDeclaredFields()) {
+                if (field.getName().equals("$VALUES") || field.getName().equals("ENUM$VALUES")){
+                    Object base = unsafe.staticFieldBase(field);
+                    long offset = unsafe.staticFieldOffset(field);
+                    T[] arr = (T[])unsafe.getObject(base, offset);
+                    T[] newArr = (T[])Array.newInstance(cl, arr.length + 1);
+                    System.arraycopy(arr, 0, newArr, 0, arr.length);
+                    T newInstance = MohistDynamEnum.makeEnum(cl, name, arr.length, additionalParameterTypes, additionalValues);
+                    newArr[arr.length] = newInstance;
+                    System.out.println(arr.length);
+                    unsafe.putObject(base, offset, newArr);
+                    cleanEnumCache(cl);
+                    return newInstance;
                 }
             }
         }
-
-        if (valuesField == null) {
+        catch (Throwable e) {
+            e.fillInStackTrace();
             return null;
         }
-
-        valuesField.setAccessible(true);
-
-        try {
-            T[] previousValues = (T[]) valuesField.get(enumType);
-            List<T> values = new ArrayList<>(Arrays.asList(previousValues));
-            T newValue = makeEnum(enumType, enumName, values.size(), paramTypes, paramValues);
-            values.add(newValue);
-            setFailsafeFieldValue(valuesField, null, values.toArray((T[]) Array.newInstance(enumType, 0)));
-            cleanEnumCache(enumType);
-
-            return newValue;
-        } catch (Throwable throwable) {
-            throwable.printStackTrace();
-            throw new RuntimeException(throwable.getMessage(), throwable);
-        }
+        return null;
     }
 
-    public static void setField(Object obj, Object value, Field field) throws ReflectiveOperationException {
-        if (obj == null) {
-            setStaticField(field, value);
-        } else {
-            try {
-                unsafe.putObject(obj, unsafe.objectFieldOffset(field), value);
-            } catch (Exception e) {
-                throw new ReflectiveOperationException(e);
-            }
-        }
+    public static <T> T addEnum(Class<T> cl, String name, List<Class<?>> additionalParameterTypes, final List<Object> additionalValues) {
+        return addEnum(cl, name, listToArray(additionalParameterTypes), additionalValues.toArray());
     }
 
-    public static void setStaticField(Field field, Object value) throws ReflectiveOperationException {
-        try {
-            implLookup.ensureInitialized(field.getDeclaringClass());
-            unsafe.putObject(unsafe.staticFieldBase(field), unsafe.staticFieldOffset(field), value);
-        } catch (Exception e) {
-            throw new ReflectiveOperationException(e);
-        }
+    public static <T> T addEnum(Class<T> cl, String name) {
+        return addEnum(cl, name, List.of(), List.of());
     }
 
-    public static <T> T getField(Object obj, Field field) throws ReflectiveOperationException {
-        if (obj == null) {
-            return getStaticField(field);
-        } else {
-            try {
-                return (T) unsafe.getObject(obj, unsafe.objectFieldOffset(field));
-            } catch (Exception e) {
-                throw new ReflectiveOperationException(e);
-            }
-        }
-    }
-
-    public static <T> T getStaticField(Field field) throws ReflectiveOperationException {
-        try {
-            implLookup.ensureInitialized(field.getDeclaringClass());
-            return (T) unsafe.getObject(unsafe.staticFieldBase(field), unsafe.staticFieldOffset(field));
-        } catch (Exception e) {
-            throw new ReflectiveOperationException(e);
-        }
-    }
-
-    public static <T extends Enum<?>> T addEnum0(Class<T> enumType, String enumName, Class<?>[] paramTypes, Object... paramValues) {
-        return addEnum(enumType, enumName, paramTypes, paramValues);
+    static final Class<?>[] NO_PTYPES = {};
+    private static Class<?>[] listToArray(List<Class<?>> ptypes) {
+        return ptypes.toArray(NO_PTYPES);
     }
 }

@@ -4,9 +4,18 @@ plugins {
 }
 
 group 'com.mohistmc'
-version '0.1'
+version '0.2'
 
-java.toolchain.languageVersion = JavaLanguageVersion.of(17)
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.compilerArgs << '-Xlint:-removal'
+}
 
 repositories {
     mavenCentral()
@@ -17,16 +26,13 @@ dependencies {
     compileOnly 'org.projectlombok:lombok:1.18.24'
 }
 
-tasks.withType(JavaCompile).configureEach {
-    options.encoding = 'UTF-8'
-    options.compilerArgs << '-Xlint:-removal'
-}
+
 
 publishing {
     publications {
         maven(MavenPublication) {
             groupId project.group
-            artifactId project.name
+            artifactId project.name.toLowerCase()
             version project.version
             from components.java
         }
