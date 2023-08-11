@@ -84,7 +84,6 @@ public class MohistDynamEnum {
                     System.arraycopy(arr, 0, newArr, 0, arr.length);
                     T newInstance = MohistDynamEnum.makeEnum(cl, name, arr.length, additionalParameterTypes, additionalValues);
                     newArr[arr.length] = newInstance;
-                    System.out.println(arr.length);
                     unsafe.putObject(base, offset, newArr);
                     cleanEnumCache(cl);
                     return newInstance;
