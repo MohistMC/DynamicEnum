@@ -14,7 +14,7 @@ java {
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
-    options.compilerArgs << '-Xlint:-removal'
+    options.warnings = false
 }
 
 repositories {
@@ -22,11 +22,9 @@ repositories {
 }
 
 dependencies {
-    annotationProcessor 'org.projectlombok:lombok:1.18.24'
-    compileOnly 'org.projectlombok:lombok:1.18.24'
+    annotationProcessor 'org.projectlombok:lombok:1.18.32'
+    compileOnly 'org.projectlombok:lombok:1.18.32'
 }
-
-
 
 publishing {
     publications {
