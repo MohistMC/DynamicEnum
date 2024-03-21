@@ -9,7 +9,7 @@ The test module has examples
  }
 
 dependencies {
-    implementation 'com.mohistmc:dynamicenum:0.2'
+    implementation 'com.mohistmc:dynamicenum:0.3'
 }
 ```
 
