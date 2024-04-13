@@ -1,6 +1,6 @@
 /*
  * Mohist - MohistMC
- * Copyright (C) 2019-2023.
+ * Copyright (C) 2018-2024.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -26,6 +26,7 @@ import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import sun.misc.Unsafe;
 
 public class MohistDynamEnum {
@@ -58,7 +59,7 @@ public class MohistDynamEnum {
             MethodHandle constructor = implLookup.findConstructor(enumClass, MethodType.methodType(void.class, ptypes));
 
             List<Object> arguments = new ArrayList<>(additionalValues.size() + 2);
-            arguments.add(value);
+            arguments.add(normalizeName(value));
             arguments.add(ordinal);
             arguments.addAll(additionalValues);
             return (T) constructor.invokeWithArguments(arguments);
@@ -101,5 +102,12 @@ public class MohistDynamEnum {
 
     public static <T> T addEnum(Class<T> cl, String name) {
         return addEnum(cl, name, List.of(), List.of());
+    }
+
+    public static String normalizeName(String name) {
+        return name.replace(':', '_')
+                .replaceAll("\\s+", "_")
+                .replaceAll("\\W", "")
+                .toUpperCase(Locale.ENGLISH);
     }
 }
