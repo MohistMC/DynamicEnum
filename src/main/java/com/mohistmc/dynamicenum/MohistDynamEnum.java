@@ -49,7 +49,7 @@ public class MohistDynamEnum {
     }
 
 
-    private static <T> T makeEnum(Class<T> enumClass, String value, int ordinal, List<Class<?>> additionalParameterTypes, List<Object> additionalValues) {
+    public static <T> T makeEnum(Class<T> enumClass, String value, int ordinal, List<Class<?>> additionalParameterTypes, List<Object> additionalValues) {
         try {
             implLookup.ensureInitialized(enumClass);
             List<Class<?>> ptypes = new ArrayList<>(additionalParameterTypes.size() + 2);
@@ -75,29 +75,53 @@ public class MohistDynamEnum {
                 .forEachOrdered(field -> unsafe.putObjectVolatile(enumClass, unsafe.objectFieldOffset(field), null)));
     }
 
+    private static <T> Field enumValuesField(Class<T> cl) throws NoSuchFieldException {
+        Field field;
+        try {
+            field = cl.getDeclaredField("$VALUES");
+        } catch (NoSuchFieldException e) {
+            field = cl.getDeclaredField("ENUM$VALUES");
+        }
+        return field;
+    }
+
     public static <T> T addEnum(Class<T> cl, String name, List<Class<?>> additionalParameterTypes, List<Object> additionalValues) {
         try {
             implLookup.ensureInitialized(cl);
-            for (Field field : cl.getDeclaredFields()) {
-                if (field.getName().equals("$VALUES") || field.getName().equals("ENUM$VALUES")) {
-                    Object base = unsafe.staticFieldBase(field);
-                    long offset = unsafe.staticFieldOffset(field);
-                    T[] arr = (T[]) unsafe.getObject(base, offset);
-                    T[] newArr = (T[]) Array.newInstance(cl, arr.length + 1);
-                    System.arraycopy(arr, 0, newArr, 0, arr.length);
-                    T newInstance = makeEnum(cl, name, arr.length, additionalParameterTypes, additionalValues);
+            Field field = enumValuesField(cl);
+            Object base = unsafe.staticFieldBase(field);
+            long offset = unsafe.staticFieldOffset(field);
+            T[] arr = (T[]) unsafe.getObject(base, offset);
+            T[] newArr = (T[]) Array.newInstance(cl, arr.length + 1);
+            System.arraycopy(arr, 0, newArr, 0, arr.length);
+            T newInstance = makeEnum(cl, name, arr.length, additionalParameterTypes, additionalValues);
 
-                    newArr[arr.length] = newInstance;
-                    unsafe.putObject(base, offset, newArr);
-                    cleanEnumCache(cl);
-                    return newInstance;
-                }
-            }
+            newArr[arr.length] = newInstance;
+            unsafe.putObject(base, offset, newArr);
+            cleanEnumCache(cl);
+            return newInstance;
         } catch (Throwable e) {
             e.fillInStackTrace();
             return null;
         }
-        return null;
+    }
+
+    public static <T> void addEnums(Class<T> cl, List<T> list) {
+        try {
+            Field field = enumValuesField(cl);
+            Object base = unsafe.staticFieldBase(field);
+            long offset = unsafe.staticFieldOffset(field);
+            T[] arr = (T[]) unsafe.getObject(base, offset);
+            T[] newArr = (T[]) Array.newInstance(cl, arr.length + list.size());
+            System.arraycopy(arr, 0, newArr, 0, arr.length);
+            for (int i = 0; i < list.size(); i++) {
+                newArr[arr.length + i] = list.get(i);
+            }
+            unsafe.putObject(base, offset, newArr);
+            cleanEnumCache(cl);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     public static <T> T addEnum(Class<T> cl, String name) {
